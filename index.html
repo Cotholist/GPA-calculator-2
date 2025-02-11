@@ -103,7 +103,7 @@
         // 获取所有课程
         async function fetchCourses() {
             try {
-                const response = await fetch('/new-api/courses');
+                const response = await fetch('/api/courses');
                 console.log('Fetch courses response status:', response.status);
                 const courses = await response.json();
                 console.log('Fetched courses:', courses);
@@ -122,7 +122,7 @@
                 <tr>
                     <td>${course.name}</td>
                     <td>${course.regular_score}</td>
-                    <td>${course.exam_scores}</td>
+                    <td>${course.exam_score}</td>
                     <td>${course.final_score.toFixed(2)}</td>
                     <td>${course.gpa.toFixed(2)}</td>
                     <td>
@@ -148,7 +148,7 @@
         // 删除课程
         async function deleteCourse(id) {
             try {
-                const response = await fetch(`/new-api/courses/${id}`, { 
+                const response = await fetch(`/api/courses/${id}`, { 
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json'
@@ -178,12 +178,12 @@
                 const courseData = {
                     name: document.getElementById('courseName').value,
                     regular_score: regularScore,
-                    exam_scores: examScores.join(','),
+                    exam_score: examScores.join(','),
                     final_score: final_score
                 };
                 console.log('Sending course data:', courseData);
 
-                const response = await fetch('/new-api/courses', {
+                const response = await fetch('/api/courses', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

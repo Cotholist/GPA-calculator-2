@@ -5,11 +5,11 @@
   "routes": [
     {
       "pattern": "/api/courses",
-      "script": "api.js"
+      "function": "courses"
     },
     {
       "pattern": "/api/courses/.*",
-      "script": "api.js"
+      "function": "courses"
     }
   ]
 }

@@ -60,8 +60,17 @@ async function handleGetCourses() {
   }
 
   const data = await response.json();
-  console.log('Fetched courses:', data);
-  return new Response(JSON.stringify(data), {
+  
+  // 处理每个课程的数据
+  const processedData = data.map(course => ({
+    ...course,
+    exam_score: course.exam_score || '',
+    final_score: parseFloat(course.final_score) || 0,
+    gpa: calculateGPA(parseFloat(course.final_score) || 0)
+  }));
+  
+  console.log('Fetched courses:', processedData);
+  return new Response(JSON.stringify(processedData), {
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
@@ -73,30 +82,10 @@ async function handlePostCourse(request) {
   const data = await request.json();
   console.log('Received course data:', data);
 
-  // Calculate GPA based on final score
-  const gpa = calculateGPA(data.final_score);
-  data.gpa = gpa;
-
-  console.log('Sending to Supabase:', data);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_API_KEY,
-      'Authorization': `Bearer ${SUPABASE_API_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    },
-    body: JSON.stringify(data)
-  });
-
-  const responseText = await response.text();
-  console.log('Supabase response:', response.status, responseText);
-
-  if (!response.ok) {
+  // 确保所有必需的字段都存在
+  if (!data.name || !data.regular_score || !data.exam_score) {
     return new Response(JSON.stringify({
-      error: 'Failed to add course',
-      status: response.status,
-      details: responseText
+      error: 'Missing required fields'
     }), {
       status: 400,
       headers: {
@@ -106,27 +95,54 @@ async function handlePostCourse(request) {
     });
   }
 
-  try {
-    const createdCourse = JSON.parse(responseText);
-    return new Response(JSON.stringify(createdCourse), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  } catch (e) {
-    console.error('Error parsing response:', e);
+  // 计算最终成绩
+  const examScores = data.exam_score.split(',').map(Number);
+  const examAverage = examScores.reduce((a, b) => a + b, 0) / examScores.length;
+  const finalScore = data.regular_score * 0.3 + examAverage * 0.7;
+  
+  // 准备要发送到 Supabase 的数据
+  const courseData = {
+    name: data.name,
+    regular_score: data.regular_score,
+    exam_score: data.exam_score,
+    final_score: finalScore,
+    gpa: calculateGPA(finalScore)
+  };
+
+  console.log('Sending to Supabase:', courseData);
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_API_KEY,
+      'Authorization': `Bearer ${SUPABASE_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(courseData)
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error adding course:', error);
     return new Response(JSON.stringify({
-      error: 'Invalid response from server',
-      details: responseText
+      error: 'Failed to add course',
+      details: error
     }), {
-      status: 500,
+      status: 400,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       }
     });
   }
+
+  const createdCourse = await response.json();
+  return new Response(JSON.stringify(createdCourse), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    }
+  });
 }
 
 async function handleDeleteCourse(requestUrl) {
@@ -156,7 +172,6 @@ async function handleDeleteCourse(requestUrl) {
   });
 }
 
-// 计算GPA的函数
 function calculateGPA(score) {
   if (score >= 90) return 4.0;
   if (score >= 85) return 3.7;
