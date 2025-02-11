@@ -11,23 +11,41 @@ export default {
       if (request.method === 'OPTIONS') {
         return new Response(null, {
           headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '86400',  // 24 hours
           }
         });
       }
 
+      // Add CORS headers to all responses
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
+        'Content-Type': 'application/json',
+      };
+
       // Handle API routes
       if (path === '/api/courses') {
-        switch (request.method) {
-          case 'GET':
-            return await handleGetCourses();
-          case 'POST':
-            return await handlePostCourse(request);
-          default:
-            return new Response('Method not allowed', { status: 405 });
-        }
+        const response = await (async () => {
+          switch (request.method) {
+            case 'GET':
+              return await handleGetCourses();
+            case 'POST':
+              return await handlePostCourse(request);
+            default:
+              return new Response('Method not allowed', { 
+                status: 405,
+                headers: corsHeaders
+              });
+          }
+        })();
+
+        // Add CORS headers to the response
+        return new Response(response.body, {
+          status: response.status,
+          headers: { ...corsHeaders, ...response.headers }
+        });
       }
 
       // Handle course deletion
@@ -35,7 +53,10 @@ export default {
         if (request.method === 'DELETE') {
           return await handleDeleteCourse(path);
         }
-        return new Response('Method not allowed', { status: 405 });
+        return new Response('Method not allowed', { 
+          status: 405,
+          headers: corsHeaders
+        });
       }
 
       // Handle non-API requests
@@ -54,86 +75,76 @@ export default {
   }
 };
 
-async function handleGetCourses() {
-  console.log('Fetching courses from Supabase...');
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
-    headers: {
-      'apikey': SUPABASE_API_KEY,
-      'Authorization': `Bearer ${SUPABASE_API_KEY}`
-    }
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error fetching courses:', error);
-    throw new Error('Failed to fetch courses');
-  }
-
-  const data = await response.json();
-  console.log('Fetched courses:', data);
-  return new Response(JSON.stringify(data), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
+// Initialize Supabase client
+async function getSupabaseClient() {
+  const { createClient } = await import('@supabase/supabase-js');
+  return createClient(SUPABASE_URL, SUPABASE_API_KEY, {
+    auth: {
+      persistSession: false
     }
   });
 }
 
-async function handlePostCourse(request) {
-  const data = await request.json();
-  console.log('Received course data:', data);
+async function handleGetCourses() {
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  // Calculate GPA based on final score
-  const gpa = calculateGPA(data.final_score);
-  data.gpa = gpa;
+    if (error) throw error;
 
-  console.log('Sending to Supabase:', data);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_API_KEY,
-      'Authorization': `Bearer ${SUPABASE_API_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    },
-    body: JSON.stringify(data)
-  });
-
-  const responseText = await response.text();
-  console.log('Supabase response:', response.status, responseText);
-
-  if (!response.ok) {
-    return new Response(JSON.stringify({
-      error: 'Failed to add course',
-      status: response.status,
-      details: responseText
-    }), {
-      status: 400,
+    return new Response(JSON.stringify(data), {
+      status: 200,
       headers: {
+        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  } catch (error) {
+    console.error('Error in handleGetCourses:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
+        'Content-Type': 'application/json',
       }
     });
   }
+}
 
+async function handlePostCourse(request) {
   try {
-    const createdCourse = JSON.parse(responseText);
-    return new Response(JSON.stringify(createdCourse), {
+    const supabase = await getSupabaseClient();
+    const courseData = await request.json();
+    
+    // Calculate GPA before inserting
+    const final_score = parseFloat(courseData.final_score);
+    const gpa = calculateGPA(final_score);
+    
+    const { data, error } = await supabase
+      .from('courses')
+      .insert([{ ...courseData, gpa }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return new Response(JSON.stringify(data), {
+      status: 201,
       headers: {
+        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
       }
     });
-  } catch (e) {
-    console.error('Error parsing response:', e);
-    return new Response(JSON.stringify({
-      error: 'Invalid response from server',
-      details: responseText
-    }), {
+  } catch (error) {
+    console.error('Error in handlePostCourse:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: {
+        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
       }
     });
   }

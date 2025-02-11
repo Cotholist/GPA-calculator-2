@@ -78,6 +78,11 @@
     </div>
 
     <script>
+        // Add API base URL configuration
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? '' 
+            : 'https://dfuhcbiryfmwufwzixwu.supabase.co';
+
         // 添加考试成绩输入框
         function addExamScore() {
             const examScores = document.getElementById('examScores');
@@ -103,7 +108,7 @@
         // 获取所有课程
         async function fetchCourses() {
             try {
-                const response = await fetch('/api/courses');
+                const response = await fetch(`${API_BASE_URL}/api/courses`);
                 console.log('Fetch courses response status:', response.status);
                 const courses = await response.json();
                 console.log('Fetched courses:', courses);
@@ -148,7 +153,7 @@
         // 删除课程
         async function deleteCourse(id) {
             try {
-                const response = await fetch(`/api/courses/${id}`, { 
+                const response = await fetch(`${API_BASE_URL}/api/courses/${id}`, { 
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json'
@@ -183,7 +188,7 @@
                 };
                 console.log('Sending course data:', courseData);
 
-                const response = await fetch('/api/courses', {
+                const response = await fetch(`${API_BASE_URL}/api/courses`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
