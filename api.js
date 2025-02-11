@@ -26,23 +26,33 @@ export async function onRequest(context) {
       // 添加新课程
       if (path === '/api/courses' && request.method === 'POST') {
         const data = await request.json();
+        
+        // Calculate GPA based on final score
+        const gpa = calculateGPA(data.final_score);
+        data.gpa = gpa;
+
         const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_API_KEY,
             'Authorization': `Bearer ${SUPABASE_API_KEY}`,
             'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
+            'Prefer': 'return=representation'  // This will return the created record
           },
           body: JSON.stringify(data)
         });
         
         if (response.ok) {
-          return new Response(JSON.stringify(data), {
+          const createdCourse = await response.json();
+          return new Response(JSON.stringify(createdCourse), {
             headers: { 'Content-Type': 'application/json' }
           });
         } else {
-          throw new Error('Failed to add course');
+          const errorData = await response.json();
+          return new Response(JSON.stringify({ error: 'Failed to add course', details: errorData }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
       }
 
@@ -73,4 +83,16 @@ export async function onRequest(context) {
       headers: { 'Content-Type': 'application/json' }
     });
   }
+}
+
+// 计算GPA的函数
+function calculateGPA(score) {
+  if (score >= 90) return 4.0;
+  if (score >= 85) return 3.7;
+  if (score >= 80) return 3.3;
+  if (score >= 75) return 3.0;
+  if (score >= 70) return 2.7;
+  if (score >= 65) return 2.3;
+  if (score >= 60) return 2.0;
+  return 0.0;
 }

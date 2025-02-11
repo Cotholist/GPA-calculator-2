@@ -147,35 +147,57 @@
         // 提交新课程
         document.getElementById('courseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const examScores = Array.from(document.querySelectorAll('#examScores input'))
-                .map(input => parseFloat(input.value));
+            try {
+                const examScores = Array.from(document.querySelectorAll('#examScores input'))
+                    .map(input => parseFloat(input.value));
 
-            const courseData = {
-                name: document.getElementById('courseName').value,
-                regular_score: parseFloat(document.getElementById('regularScore').value),
-                exam_scores: examScores
-            };
+                const courseData = {
+                    name: document.getElementById('courseName').value,
+                    regular_score: parseFloat(document.getElementById('regularScore').value),
+                    exam_scores: examScores.join(','), // Convert array to comma-separated string
+                    final_score: calculateFinalScore(parseFloat(document.getElementById('regularScore').value), examScores),
+                    gpa: 0 // This will be calculated on the server side
+                };
 
-            await fetch('/api/courses', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(courseData)
-            });
+                const response = await fetch('/api/courses', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(courseData)
+                });
 
-            // 重置表单并刷新课程列表
-            e.target.reset();
-            document.getElementById('examScores').innerHTML = `
-                <div class="exam-score-input d-flex">
-                    <input type="number" class="form-control me-2" min="0" max="100" required>
-                    <button type="button" class="btn btn-danger" onclick="removeExamScore(this)">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            `;
-            fetchCourses();
+                if (!response.ok) {
+                    throw new Error('Failed to add course');
+                }
+
+                // 重置表单并刷新课程列表
+                e.target.reset();
+                document.getElementById('examScores').innerHTML = `
+                    <div class="exam-score-input d-flex">
+                        <input type="number" class="form-control me-2" min="0" max="100" required>
+                        <button type="button" class="btn btn-danger" onclick="removeExamScore(this)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                // Add a small delay before fetching courses to ensure the database has updated
+                setTimeout(() => {
+                    fetchCourses();
+                }, 500);
+
+            } catch (error) {
+                console.error('Error adding course:', error);
+                alert('添加课程失败，请重试');
+            }
         });
+
+        // 添加计算最终成绩的函数
+        function calculateFinalScore(regularScore, examScores) {
+            const examAverage = examScores.reduce((a, b) => a + b, 0) / examScores.length;
+            return regularScore * 0.3 + examAverage * 0.7; // 30% 平时成绩, 70% 考试成绩
+        }
 
         // 初始加载
         fetchCourses();
