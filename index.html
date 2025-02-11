@@ -108,8 +108,10 @@
         // 获取所有课程
         async function fetchCourses() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/courses`);
-                console.log('Fetch courses response status:', response.status);
+                const response = await fetch('/api/courses');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const courses = await response.json();
                 console.log('Fetched courses:', courses);
                 displayCourses(courses);
@@ -175,8 +177,7 @@
             try {
                 const examScores = Array.from(document.querySelectorAll('#examScores input'))
                     .map(input => parseFloat(input.value));
-                console.log('Exam scores:', examScores);
-
+                
                 const regularScore = parseFloat(document.getElementById('regularScore').value);
                 const final_score = calculateFinalScore(regularScore, examScores);
 
@@ -186,9 +187,8 @@
                     exam_score: examScores.join(','),
                     final_score: final_score
                 };
-                console.log('Sending course data:', courseData);
 
-                const response = await fetch(`${API_BASE_URL}/api/courses`, {
+                const response = await fetch('/api/courses', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -196,16 +196,13 @@
                     body: JSON.stringify(courseData)
                 });
 
-                console.log('Response status:', response.status);
-                const responseData = await response.json();
-                console.log('Response data:', responseData);
-
                 if (!response.ok) {
-                    throw new Error(`Failed to add course: ${JSON.stringify(responseData)}`);
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '添加课程失败');
                 }
 
-                // 重置表单并刷新课程列表
-                e.target.reset();
+                // Clear form
+                document.getElementById('courseForm').reset();
                 document.getElementById('examScores').innerHTML = `
                     <div class="exam-score-input d-flex">
                         <input type="number" class="form-control me-2" min="0" max="100" required>
@@ -214,12 +211,12 @@
                         </button>
                     </div>
                 `;
-                
-                await fetchCourses();
 
+                // Refresh course list
+                await fetchCourses();
             } catch (error) {
                 console.error('Error adding course:', error);
-                alert('添加课程失败，请重试: ' + error.message);
+                alert(error.message || '添加课程失败，请重试');
             }
         });
 

@@ -1,6 +1,13 @@
 const SUPABASE_URL = 'https://dfuhcbiryfmwufwzixwu.supabase.co';
 const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdWhjYmlyeWZtd3Vmd3ppeHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyNTY2MzcsImV4cCI6MjA1NDgzMjYzN30.NSrivyNZmIXDwrrfVto5ex9Hbg2CSBpmiN7tZKvMp_o';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+};
+
 export default {
   async fetch(request, env) {
     try {
@@ -9,49 +16,29 @@ export default {
 
       // Handle CORS preflight requests
       if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          headers: {
-            'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Max-Age': '86400',  // 24 hours
-          }
-        });
+        return new Response(null, { headers: corsHeaders });
       }
-
-      // Add CORS headers to all responses
-      const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
-        'Content-Type': 'application/json',
-      };
 
       // Handle API routes
       if (path === '/api/courses') {
-        const response = await (async () => {
-          switch (request.method) {
-            case 'GET':
-              return await handleGetCourses();
-            case 'POST':
-              return await handlePostCourse(request);
-            default:
-              return new Response('Method not allowed', { 
-                status: 405,
-                headers: corsHeaders
-              });
-          }
-        })();
-
-        // Add CORS headers to the response
-        return new Response(response.body, {
-          status: response.status,
-          headers: { ...corsHeaders, ...response.headers }
-        });
+        switch (request.method) {
+          case 'GET':
+            return await handleGetCourses();
+          case 'POST':
+            return await handlePostCourse(request);
+          default:
+            return new Response('Method not allowed', { 
+              status: 405,
+              headers: corsHeaders
+            });
+        }
       }
 
       // Handle course deletion
       if (path.match(/^\/api\/courses\/\d+$/)) {
         if (request.method === 'DELETE') {
-          return await handleDeleteCourse(path);
+          const id = path.split('/').pop();
+          return await handleDeleteCourse(id);
         }
         return new Response('Method not allowed', { 
           status: 405,
@@ -59,124 +46,95 @@ export default {
         });
       }
 
-      // Handle non-API requests
-      return env.ASSETS.fetch(request);
+      return new Response('Not found', { 
+        status: 404,
+        headers: corsHeaders
+      });
 
     } catch (error) {
       console.error('API Error:', error);
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+          ...corsHeaders,
+          'Content-Type': 'application/json'
         }
       });
     }
   }
 };
 
-// Initialize Supabase client
-async function getSupabaseClient() {
-  const { createClient } = await import('@supabase/supabase-js');
-  return createClient(SUPABASE_URL, SUPABASE_API_KEY, {
-    auth: {
-      persistSession: false
-    }
-  });
-}
-
 async function handleGetCourses() {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
-        'Content-Type': 'application/json',
-      }
-    });
-  } catch (error) {
-    console.error('Error in handleGetCourses:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
-        'Content-Type': 'application/json',
-      }
-    });
-  }
-}
-
-async function handlePostCourse(request) {
-  try {
-    const supabase = await getSupabaseClient();
-    const courseData = await request.json();
-    
-    // Calculate GPA before inserting
-    const final_score = parseFloat(courseData.final_score);
-    const gpa = calculateGPA(final_score);
-    
-    const { data, error } = await supabase
-      .from('courses')
-      .insert([{ ...courseData, gpa }])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return new Response(JSON.stringify(data), {
-      status: 201,
-      headers: {
-        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
-        'Content-Type': 'application/json',
-      }
-    });
-  } catch (error) {
-    console.error('Error in handlePostCourse:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',  // In production, replace with your actual frontend domain
-        'Content-Type': 'application/json',
-      }
-    });
-  }
-}
-
-async function handleDeleteCourse(path) {
-  const courseId = path.split('/').pop();
-  console.log('Deleting course:', courseId);
-
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${courseId}`, {
-    method: 'DELETE',
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
     headers: {
       'apikey': SUPABASE_API_KEY,
       'Authorization': `Bearer ${SUPABASE_API_KEY}`
     }
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error deleting course:', error);
-    throw new Error('Failed to delete course');
-  }
-
-  return new Response(null, {
-    status: 204,
+  const data = await response.json();
+  return new Response(JSON.stringify(data), {
     headers: {
-      'Access-Control-Allow-Origin': '*'
+      ...corsHeaders,
+      'Content-Type': 'application/json'
     }
   });
 }
 
-// 计算GPA的函数
+async function handlePostCourse(request) {
+  const courseData = await request.json();
+  
+  // Calculate GPA
+  const final_score = parseFloat(courseData.final_score);
+  const gpa = calculateGPA(final_score);
+  
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_API_KEY,
+      'Authorization': `Bearer ${SUPABASE_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ ...courseData, gpa })
+  });
+
+  const data = await response.json();
+  return new Response(JSON.stringify(data), {
+    status: 201,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
+async function handleDeleteCourse(id) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: {
+      'apikey': SUPABASE_API_KEY,
+      'Authorization': `Bearer ${SUPABASE_API_KEY}`,
+      'Prefer': 'return=representation'
+    }
+  });
+
+  if (response.ok) {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    });
+  }
+
+  return new Response(JSON.stringify({ error: 'Failed to delete course' }), {
+    status: 500,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
 function calculateGPA(score) {
   if (score >= 90) return 4.0;
   if (score >= 85) return 3.7;
