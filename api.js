@@ -11,47 +11,87 @@ export async function onRequest(context) {
       
       // 处理课程列表
       if (path === '/api/courses' && request.method === 'GET') {
+        console.log('Fetching courses from Supabase...');
         const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
           headers: {
             'apikey': SUPABASE_API_KEY,
             'Authorization': `Bearer ${SUPABASE_API_KEY}`
           }
         });
+        
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Error fetching courses:', error);
+          throw new Error('Failed to fetch courses');
+        }
+        
         const data = await response.json();
+        console.log('Fetched courses:', data);
         return new Response(JSON.stringify(data), {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
         });
       }
       
       // 添加新课程
       if (path === '/api/courses' && request.method === 'POST') {
         const data = await request.json();
+        console.log('Received course data:', data);
         
         // Calculate GPA based on final score
         const gpa = calculateGPA(data.final_score);
         data.gpa = gpa;
-
+        
+        console.log('Sending to Supabase:', data);
         const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_API_KEY,
             'Authorization': `Bearer ${SUPABASE_API_KEY}`,
             'Content-Type': 'application/json',
-            'Prefer': 'return=representation'  // This will return the created record
+            'Prefer': 'return=representation'
           },
           body: JSON.stringify(data)
         });
         
-        if (response.ok) {
-          const createdCourse = await response.json();
-          return new Response(JSON.stringify(createdCourse), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } else {
-          const errorData = await response.json();
-          return new Response(JSON.stringify({ error: 'Failed to add course', details: errorData }), {
+        const responseText = await response.text();
+        console.log('Supabase response:', response.status, responseText);
+        
+        if (!response.ok) {
+          return new Response(JSON.stringify({ 
+            error: 'Failed to add course', 
+            status: response.status,
+            details: responseText 
+          }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+        
+        try {
+          const createdCourse = JSON.parse(responseText);
+          return new Response(JSON.stringify(createdCourse), {
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing response:', e);
+          return new Response(JSON.stringify({ 
+            error: 'Invalid response from server',
+            details: responseText 
+          }), {
+            status: 500,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
           });
         }
       }
@@ -59,6 +99,8 @@ export async function onRequest(context) {
       // 删除课程
       if (path.match(/^\/api\/courses\/\d+$/) && request.method === 'DELETE') {
         const courseId = path.split('/').pop();
+        console.log('Deleting course:', courseId);
+        
         const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${courseId}`, {
           method: 'DELETE',
           headers: {
@@ -67,20 +109,42 @@ export async function onRequest(context) {
           }
         });
         
-        if (response.ok) {
-          return new Response(null, { status: 204 });
-        } else {
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Error deleting course:', error);
           throw new Error('Failed to delete course');
         }
+        
+        return new Response(null, { 
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+      
+      // Handle OPTIONS requests for CORS
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          }
+        });
       }
     }
     
     // 对于非 API 请求，返回静态文件
     return env.ASSETS.fetch(request);
   } catch (error) {
+    console.error('API Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     });
   }
 }

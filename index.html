@@ -102,10 +102,17 @@
 
         // 获取所有课程
         async function fetchCourses() {
-            const response = await fetch('/api/courses');
-            const courses = await response.json();
-            displayCourses(courses);
-            updateOverallGPA(courses);
+            try {
+                const response = await fetch('/api/courses');
+                console.log('Fetch courses response status:', response.status);
+                const courses = await response.json();
+                console.log('Fetched courses:', courses);
+                displayCourses(courses);
+                updateOverallGPA(courses);
+            } catch (error) {
+                console.error('Error fetching courses:', error);
+                alert('获取课程列表失败，请刷新页面重试');
+            }
         }
 
         // 显示课程列表
@@ -150,6 +157,7 @@
             try {
                 const examScores = Array.from(document.querySelectorAll('#examScores input'))
                     .map(input => parseFloat(input.value));
+                console.log('Exam scores:', examScores);
 
                 const courseData = {
                     name: document.getElementById('courseName').value,
@@ -158,6 +166,7 @@
                     final_score: calculateFinalScore(parseFloat(document.getElementById('regularScore').value), examScores),
                     gpa: 0 // This will be calculated on the server side
                 };
+                console.log('Sending course data:', courseData);
 
                 const response = await fetch('/api/courses', {
                     method: 'POST',
@@ -167,8 +176,12 @@
                     body: JSON.stringify(courseData)
                 });
 
+                console.log('Response status:', response.status);
+                const responseData = await response.json();
+                console.log('Response data:', responseData);
+
                 if (!response.ok) {
-                    throw new Error('Failed to add course');
+                    throw new Error(`Failed to add course: ${JSON.stringify(responseData)}`);
                 }
 
                 // 重置表单并刷新课程列表
@@ -182,14 +195,11 @@
                     </div>
                 `;
                 
-                // Add a small delay before fetching courses to ensure the database has updated
-                setTimeout(() => {
-                    fetchCourses();
-                }, 500);
+                await fetchCourses();
 
             } catch (error) {
                 console.error('Error adding course:', error);
-                alert('添加课程失败，请重试');
+                alert('添加课程失败，请重试: ' + error.message);
             }
         });
 
