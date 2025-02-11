@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPA 计算器</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .container { max-width: 900px; }
+        .course-form { background-color: #f8f9fa; padding: 20px; border-radius: 8px; }
+        .exam-scores { margin-top: 10px; }
+        .exam-score-input { margin-bottom: 10px; }
+        .delete-score { cursor: pointer; color: #dc3545; }
+        .overall-gpa { font-size: 1.5em; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">GPA 计算器</h1>
+        
+        <!-- 总体GPA显示 -->
+        <div class="text-center mb-4">
+            <div class="overall-gpa">
+                总体 GPA: <span id="overallGPA">0.00</span>
+            </div>
+        </div>
+
+        <!-- 添加课程表单 -->
+        <div class="course-form mb-4">
+            <h3>添加新课程</h3>
+            <form id="courseForm">
+                <div class="mb-3">
+                    <label for="courseName" class="form-label">课程名称</label>
+                    <input type="text" class="form-control" id="courseName" required>
+                </div>
+                <div class="mb-3">
+                    <label for="regularScore" class="form-label">平时成绩</label>
+                    <input type="number" class="form-control" id="regularScore" min="0" max="100" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">考试成绩</label>
+                    <div id="examScores" class="exam-scores">
+                        <div class="exam-score-input d-flex">
+                            <input type="number" class="form-control me-2" min="0" max="100" required>
+                            <button type="button" class="btn btn-danger" onclick="removeExamScore(this)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary mt-2" onclick="addExamScore()">
+                        添加考试成绩
+                    </button>
+                </div>
+                <button type="submit" class="btn btn-primary">添加课程</button>
+            </form>
+        </div>
+
+        <!-- 课程列表 -->
+        <div class="courses-list">
+            <h3>课程列表</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>课程名称</th>
+                            <th>平时成绩</th>
+                            <th>考试成绩</th>
+                            <th>最终成绩</th>
+                            <th>GPA</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coursesList"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 添加考试成绩输入框
+        function addExamScore() {
+            const examScores = document.getElementById('examScores');
+            const newInput = document.createElement('div');
+            newInput.className = 'exam-score-input d-flex';
+            newInput.innerHTML = `
+                <input type="number" class="form-control me-2" min="0" max="100" required>
+                <button type="button" class="btn btn-danger" onclick="removeExamScore(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            examScores.appendChild(newInput);
+        }
+
+        // 删除考试成绩输入框
+        function removeExamScore(button) {
+            const examScores = document.getElementById('examScores');
+            if (examScores.children.length > 1) {
+                button.parentElement.remove();
+            }
+        }
+
+        // 获取所有课程
+        async function fetchCourses() {
+<<<<<<< HEAD
+            const response = await fetch('/courses');
+=======
+            const response = await fetch('/api/courses');
+>>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
+            const courses = await response.json();
+            displayCourses(courses);
+            updateOverallGPA(courses);
+        }
+
+        // 显示课程列表
+        function displayCourses(courses) {
+            const coursesList = document.getElementById('coursesList');
+            coursesList.innerHTML = courses.map(course => `
+                <tr>
+                    <td>${course.name}</td>
+                    <td>${course.regular_score}</td>
+                    <td>${course.exam_scores.split(',').join(', ')}</td>
+                    <td>${course.final_score.toFixed(2)}</td>
+                    <td>${course.gpa.toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCourse(${course.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 计算总体GPA
+        function updateOverallGPA(courses) {
+            if (courses.length === 0) {
+                document.getElementById('overallGPA').textContent = '0.00';
+                return;
+            }
+            const totalGPA = courses.reduce((sum, course) => sum + course.gpa, 0);
+            const averageGPA = totalGPA / courses.length;
+            document.getElementById('overallGPA').textContent = averageGPA.toFixed(2);
+        }
+
+        // 删除课程
+        async function deleteCourse(id) {
+<<<<<<< HEAD
+            await fetch(`/courses/${id}`, { method: 'DELETE' });
+=======
+            await fetch(`/api/courses/${id}`, { method: 'DELETE' });
+>>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
+            fetchCourses();
+        }
+
+        // 提交新课程
+        document.getElementById('courseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const examScores = Array.from(document.querySelectorAll('#examScores input'))
+                .map(input => parseFloat(input.value));
+
+            const courseData = {
+                name: document.getElementById('courseName').value,
+                regular_score: parseFloat(document.getElementById('regularScore').value),
+                exam_scores: examScores
+            };
+
+<<<<<<< HEAD
+            await fetch('/courses', {
+=======
+            await fetch('/api/courses', {
+>>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(courseData)
+            });
+
+            // 重置表单并刷新课程列表
+            e.target.reset();
+            document.getElementById('examScores').innerHTML = `
+                <div class="exam-score-input d-flex">
+                    <input type="number" class="form-control me-2" min="0" max="100" required>
+                    <button type="button" class="btn btn-danger" onclick="removeExamScore(this)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            fetchCourses();
+        });
+
+        // 初始加载
+        fetchCourses();
+    </script>
+</body>
+</html>
