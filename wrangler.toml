@@ -2,12 +2,10 @@ name = "gpa-calculator"
 compatibility_date = "2024-02-11"
 
 [build]
-command = "pip install -r requirements.txt"
-pages_build_output_dir = "templates"
+command = "pip install -r requirements.txt && python app.py"
 
 [site]
 bucket = "./templates"
-entry-point = "workers-site"
 
-[env.production]
-name = "gpa-calculator-prod"
+[build.upload]
+format = "service-worker"
