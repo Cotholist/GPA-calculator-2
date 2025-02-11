@@ -102,11 +102,7 @@
 
         // 获取所有课程
         async function fetchCourses() {
-<<<<<<< HEAD
-            const response = await fetch('/courses');
-=======
             const response = await fetch('/api/courses');
->>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
             const courses = await response.json();
             displayCourses(courses);
             updateOverallGPA(courses);
@@ -144,11 +140,7 @@
 
         // 删除课程
         async function deleteCourse(id) {
-<<<<<<< HEAD
-            await fetch(`/courses/${id}`, { method: 'DELETE' });
-=======
             await fetch(`/api/courses/${id}`, { method: 'DELETE' });
->>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
             fetchCourses();
         }
 
@@ -164,11 +156,7 @@
                 exam_scores: examScores
             };
 
-<<<<<<< HEAD
-            await fetch('/courses', {
-=======
             await fetch('/api/courses', {
->>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
