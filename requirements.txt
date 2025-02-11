@@ -6,8 +6,4 @@ python-dotenv==1.0.0
 psycopg2-binary==2.9.9
 Flask-Migrate==4.0.5
 requests==2.31.0
-<<<<<<< HEAD
-=======
-cloudflare-worker==0.1.1
 werkzeug==3.0.1
->>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48

@@ -1,31 +1,13 @@
 name = "gpa-calculator"
-type = "webpack"
-account_id = ""
-workers_dev = true
-route = ""
-zone_id = ""
+compatibility_date = "2024-02-11"
 
-<<<<<<< HEAD
 [build]
 command = "pip install -r requirements.txt"
 pages_build_output_dir = "templates"
 
-=======
->>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
 [site]
 bucket = "./templates"
 entry-point = "workers-site"
 
 [env.production]
 name = "gpa-calculator-prod"
-<<<<<<< HEAD
-workers_dev = true
-
-[env.staging]
-name = "gpa-calculator-staging"
-workers_dev = true
-=======
-
-[env.staging]
-name = "gpa-calculator-staging"
->>>>>>> db2f85cf0cc5fce31758a7d925a4afe45c526d48
