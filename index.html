@@ -103,7 +103,7 @@
         // 获取所有课程
         async function fetchCourses() {
             try {
-                const response = await fetch('/api/courses');
+                const response = await fetch('/new-api/courses');
                 console.log('Fetch courses response status:', response.status);
                 const courses = await response.json();
                 console.log('Fetched courses:', courses);
@@ -122,7 +122,7 @@
                 <tr>
                     <td>${course.name}</td>
                     <td>${course.regular_score}</td>
-                    <td>${course.exam_scores.split(',').join(', ')}</td>
+                    <td>${course.exam_scores}</td>
                     <td>${course.final_score.toFixed(2)}</td>
                     <td>${course.gpa.toFixed(2)}</td>
                     <td>
@@ -147,8 +147,21 @@
 
         // 删除课程
         async function deleteCourse(id) {
-            await fetch(`/api/courses/${id}`, { method: 'DELETE' });
-            fetchCourses();
+            try {
+                const response = await fetch(`/new-api/courses/${id}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to delete course');
+                }
+                await fetchCourses();
+            } catch (error) {
+                console.error('Error deleting course:', error);
+                alert('删除课程失败，请重试');
+            }
         }
 
         // 提交新课程
@@ -159,16 +172,18 @@
                     .map(input => parseFloat(input.value));
                 console.log('Exam scores:', examScores);
 
+                const regularScore = parseFloat(document.getElementById('regularScore').value);
+                const final_score = calculateFinalScore(regularScore, examScores);
+
                 const courseData = {
                     name: document.getElementById('courseName').value,
-                    regular_score: parseFloat(document.getElementById('regularScore').value),
-                    exam_scores: examScores.join(','), // Convert array to comma-separated string
-                    final_score: calculateFinalScore(parseFloat(document.getElementById('regularScore').value), examScores),
-                    gpa: 0 // This will be calculated on the server side
+                    regular_score: regularScore,
+                    exam_scores: examScores.join(','),
+                    final_score: final_score
                 };
                 console.log('Sending course data:', courseData);
 
-                const response = await fetch('/api/courses', {
+                const response = await fetch('/new-api/courses', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -203,7 +218,7 @@
             }
         });
 
-        // 添加计算最终成绩的函数
+        // 计算最终成绩
         function calculateFinalScore(regularScore, examScores) {
             const examAverage = examScores.reduce((a, b) => a + b, 0) / examScores.length;
             return regularScore * 0.3 + examAverage * 0.7; // 30% 平时成绩, 70% 考试成绩
