@@ -1,0 +1,16 @@
+name = "gpa-calculator"
+type = "webpack"
+account_id = ""
+workers_dev = true
+route = ""
+zone_id = ""
+
+[site]
+bucket = "./templates"
+entry-point = "workers-site"
+
+[env.production]
+name = "gpa-calculator-prod"
+
+[env.staging]
+name = "gpa-calculator-staging"
