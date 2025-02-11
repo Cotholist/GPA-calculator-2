@@ -1,157 +1,166 @@
 const SUPABASE_URL = 'https://dfuhcbiryfmwufwzixwu.supabase.co';
-const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdWhjYmlyeWZtd3Vmd3ppeHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyNTY2MzcsImV4cCI6MjA1NDgzMjYzN30.NSrivyNZmIXDwrrfVto5ex9Hbg2CSBpmiN7tZKvMp_o'; // 需要替换为你的 anon key
+const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdWhjYmlyeWZtd3Vmd3ppeHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyNTY2MzcsImV4cCI6MjA1NDgzMjYzN30.NSrivyNZmIXDwrrfVto5ex9Hbg2CSBpmiN7tZKvMp_o';
 
-export async function onRequestGet(context) {
-  try {
-    console.log('Fetching courses from Supabase...');
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
-      headers: {
-        'apikey': SUPABASE_API_KEY,
-        'Authorization': `Bearer ${SUPABASE_API_KEY}`
-      }
-    });
-    
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Error fetching courses:', error);
-      throw new Error('Failed to fetch courses');
-    }
-    
-    const data = await response.json();
-    console.log('Fetched courses:', data);
-    return new Response(JSON.stringify(data), {
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  } catch (error) {
-    console.error('API Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
-}
-
-export async function onRequestPost(context) {
-  try {
-    const data = await context.request.json();
-    console.log('Received course data:', data);
-    
-    // Calculate GPA based on final score
-    const gpa = calculateGPA(data.final_score);
-    data.gpa = gpa;
-    
-    console.log('Sending to Supabase:', data);
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_API_KEY,
-        'Authorization': `Bearer ${SUPABASE_API_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(data)
-    });
-    
-    const responseText = await response.text();
-    console.log('Supabase response:', response.status, responseText);
-    
-    if (!response.ok) {
-      return new Response(JSON.stringify({ 
-        error: 'Failed to add course', 
-        status: response.status,
-        details: responseText 
-      }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-    
+export default {
+  async fetch(request, env) {
     try {
-      const createdCourse = JSON.parse(responseText);
-      return new Response(JSON.stringify(createdCourse), {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+      const url = new URL(request.url);
+      const path = url.pathname;
+
+      // Handle CORS preflight requests
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          }
+        });
+      }
+
+      // Handle API routes
+      if (path === '/api/courses') {
+        switch (request.method) {
+          case 'GET':
+            return await handleGetCourses();
+          case 'POST':
+            return await handlePostCourse(request);
+          default:
+            return new Response('Method not allowed', { status: 405 });
         }
-      });
-    } catch (e) {
-      console.error('Error parsing response:', e);
-      return new Response(JSON.stringify({ 
-        error: 'Invalid response from server',
-        details: responseText 
-      }), {
+      }
+
+      // Handle course deletion
+      if (path.match(/^\/api\/courses\/\d+$/)) {
+        if (request.method === 'DELETE') {
+          return await handleDeleteCourse(path);
+        }
+        return new Response('Method not allowed', { status: 405 });
+      }
+
+      // Handle non-API requests
+      return env.ASSETS.fetch(request);
+
+    } catch (error) {
+      console.error('API Error:', error);
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         }
       });
     }
-  } catch (error) {
-    console.error('API Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
   }
-}
+};
 
-export async function onRequestDelete(context) {
-  try {
-    const url = new URL(context.request.url);
-    const courseId = url.pathname.split('/').pop();
-    console.log('Deleting course:', courseId);
-    
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${courseId}`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPABASE_API_KEY,
-        'Authorization': `Bearer ${SUPABASE_API_KEY}`
-      }
-    });
-    
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Error deleting course:', error);
-      throw new Error('Failed to delete course');
-    }
-    
-    return new Response(null, { 
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  } catch (error) {
-    console.error('API Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
+async function handleGetCourses() {
+  console.log('Fetching courses from Supabase...');
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'apikey': SUPABASE_API_KEY,
+      'Authorization': `Bearer ${SUPABASE_API_KEY}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error fetching courses:', error);
+    throw new Error('Failed to fetch courses');
+  }
+
+  const data = await response.json();
+  console.log('Fetched courses:', data);
+  return new Response(JSON.stringify(data), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    }
+  });
+}
+
+async function handlePostCourse(request) {
+  const data = await request.json();
+  console.log('Received course data:', data);
+
+  // Calculate GPA based on final score
+  const gpa = calculateGPA(data.final_score);
+  data.gpa = gpa;
+
+  console.log('Sending to Supabase:', data);
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_API_KEY,
+      'Authorization': `Bearer ${SUPABASE_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(data)
+  });
+
+  const responseText = await response.text();
+  console.log('Supabase response:', response.status, responseText);
+
+  if (!response.ok) {
+    return new Response(JSON.stringify({
+      error: 'Failed to add course',
+      status: response.status,
+      details: responseText
+    }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
+  try {
+    const createdCourse = JSON.parse(responseText);
+    return new Response(JSON.stringify(createdCourse), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  } catch (e) {
+    console.error('Error parsing response:', e);
+    return new Response(JSON.stringify({
+      error: 'Invalid response from server',
+      details: responseText
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}
+
+async function handleDeleteCourse(path) {
+  const courseId = path.split('/').pop();
+  console.log('Deleting course:', courseId);
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${courseId}`, {
+    method: 'DELETE',
+    headers: {
+      'apikey': SUPABASE_API_KEY,
+      'Authorization': `Bearer ${SUPABASE_API_KEY}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error deleting course:', error);
+    throw new Error('Failed to delete course');
+  }
+
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*'
     }
   });
 }

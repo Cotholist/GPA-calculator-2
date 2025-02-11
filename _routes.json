@@ -4,7 +4,11 @@
   "exclude": [],
   "routes": [
     {
-      "pattern": "/api/.*",
+      "pattern": "/api/courses",
+      "script": "api.js"
+    },
+    {
+      "pattern": "/api/courses/.*",
       "script": "api.js"
     }
   ]
