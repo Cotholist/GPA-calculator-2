@@ -1,142 +1,30 @@
 const SUPABASE_URL = 'https://dfuhcbiryfmwufwzixwu.supabase.co';
 const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdWhjYmlyeWZtd3Vmd3ppeHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkyNTY2MzcsImV4cCI6MjA1NDgzMjYzN30.NSrivyNZmIXDwrrfVto5ex9Hbg2CSBpmiN7tZKvMp_o'; // 需要替换为你的 anon key
 
-export async function onRequest(context) {
-  const { request, env } = context;
-  
+export async function onRequestGet(context) {
   try {
-    if (request.url.includes('/api/')) {
-      const url = new URL(request.url);
-      const path = url.pathname;
-      
-      // 处理课程列表
-      if (path === '/api/courses' && request.method === 'GET') {
-        console.log('Fetching courses from Supabase...');
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
-          headers: {
-            'apikey': SUPABASE_API_KEY,
-            'Authorization': `Bearer ${SUPABASE_API_KEY}`
-          }
-        });
-        
-        if (!response.ok) {
-          const error = await response.text();
-          console.error('Error fetching courses:', error);
-          throw new Error('Failed to fetch courses');
-        }
-        
-        const data = await response.json();
-        console.log('Fetched courses:', data);
-        return new Response(JSON.stringify(data), {
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
+    console.log('Fetching courses from Supabase...');
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?select=*`, {
+      headers: {
+        'apikey': SUPABASE_API_KEY,
+        'Authorization': `Bearer ${SUPABASE_API_KEY}`
       }
-      
-      // 添加新课程
-      if (path === '/api/courses' && request.method === 'POST') {
-        const data = await request.json();
-        console.log('Received course data:', data);
-        
-        // Calculate GPA based on final score
-        const gpa = calculateGPA(data.final_score);
-        data.gpa = gpa;
-        
-        console.log('Sending to Supabase:', data);
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_API_KEY,
-            'Authorization': `Bearer ${SUPABASE_API_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify(data)
-        });
-        
-        const responseText = await response.text();
-        console.log('Supabase response:', response.status, responseText);
-        
-        if (!response.ok) {
-          return new Response(JSON.stringify({ 
-            error: 'Failed to add course', 
-            status: response.status,
-            details: responseText 
-          }), {
-            status: 400,
-            headers: { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            }
-          });
-        }
-        
-        try {
-          const createdCourse = JSON.parse(responseText);
-          return new Response(JSON.stringify(createdCourse), {
-            headers: { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing response:', e);
-          return new Response(JSON.stringify({ 
-            error: 'Invalid response from server',
-            details: responseText 
-          }), {
-            status: 500,
-            headers: { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            }
-          });
-        }
-      }
-
-      // 删除课程
-      if (path.match(/^\/api\/courses\/\d+$/) && request.method === 'DELETE') {
-        const courseId = path.split('/').pop();
-        console.log('Deleting course:', courseId);
-        
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${courseId}`, {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_API_KEY,
-            'Authorization': `Bearer ${SUPABASE_API_KEY}`
-          }
-        });
-        
-        if (!response.ok) {
-          const error = await response.text();
-          console.error('Error deleting course:', error);
-          throw new Error('Failed to delete course');
-        }
-        
-        return new Response(null, { 
-          status: 204,
-          headers: {
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
-      }
-      
-      // Handle OPTIONS requests for CORS
-      if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
-        });
-      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Error fetching courses:', error);
+      throw new Error('Failed to fetch courses');
     }
     
-    // 对于非 API 请求，返回静态文件
-    return env.ASSETS.fetch(request);
+    const data = await response.json();
+    console.log('Fetched courses:', data);
+    return new Response(JSON.stringify(data), {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
   } catch (error) {
     console.error('API Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
@@ -147,6 +35,125 @@ export async function onRequest(context) {
       }
     });
   }
+}
+
+export async function onRequestPost(context) {
+  try {
+    const data = await context.request.json();
+    console.log('Received course data:', data);
+    
+    // Calculate GPA based on final score
+    const gpa = calculateGPA(data.final_score);
+    data.gpa = gpa;
+    
+    console.log('Sending to Supabase:', data);
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/courses`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_API_KEY,
+        'Authorization': `Bearer ${SUPABASE_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    const responseText = await response.text();
+    console.log('Supabase response:', response.status, responseText);
+    
+    if (!response.ok) {
+      return new Response(JSON.stringify({ 
+        error: 'Failed to add course', 
+        status: response.status,
+        details: responseText 
+      }), {
+        status: 400,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+    
+    try {
+      const createdCourse = JSON.parse(responseText);
+      return new Response(JSON.stringify(createdCourse), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    } catch (e) {
+      console.error('Error parsing response:', e);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid response from server',
+        details: responseText 
+      }), {
+        status: 500,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('API Error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}
+
+export async function onRequestDelete(context) {
+  try {
+    const url = new URL(context.request.url);
+    const courseId = url.pathname.split('/').pop();
+    console.log('Deleting course:', courseId);
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${courseId}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_API_KEY,
+        'Authorization': `Bearer ${SUPABASE_API_KEY}`
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Error deleting course:', error);
+      throw new Error('Failed to delete course');
+    }
+    
+    return new Response(null, { 
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  } catch (error) {
+    console.error('API Error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+  });
 }
 
 // 计算GPA的函数
